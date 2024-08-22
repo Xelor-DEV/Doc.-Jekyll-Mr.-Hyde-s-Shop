@@ -1,12 +1,13 @@
 using UnityEngine;
+using System;
 using UnityEngine.UI;
 using TMPro;
 using DG.Tweening;
+
 public class UIManager : MonoBehaviour
 {
     [Header("References")]
     [SerializeField] private GameObject robotCardPrefab;
-
     [Header("Music Sliders")]
     [SerializeField] private Slider masterSlider;
     [SerializeField] private Slider musicSlider;
@@ -36,5 +37,14 @@ public class UIManager : MonoBehaviour
     {
         Time.timeScale = 1;
     }
+    public void Food()
+    {
+        
+        Person.OnFood?.Invoke();
+    }
+    public void Exercise()
+    {
 
+        Person.OnExercise?.Invoke();
+    }
 }

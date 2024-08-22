@@ -16,6 +16,8 @@ public class PersonSpawner : MonoBehaviour
     private int currentPersonCount;
     private bool isFirstRound = true; // Indica si es la primera ronda
 
+    public int vivos;
+    public int muertos;
     private void Start()
     {
         currentPersonCount = initialPersonCount;
@@ -41,6 +43,7 @@ public class PersonSpawner : MonoBehaviour
 
             // Después de la primera ronda, desactiva la bandera
             isFirstRound = false;
+
         }
     }
 

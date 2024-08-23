@@ -381,6 +381,15 @@ MonoBehaviour:
   shop: {fileID: 2080451658}
   initialPersonCount: 5
   incrementValue: 1
+  minBodyFat: 4
+  maxBodyFat: 7
+  currentMode: 1
+  currentPersonCount: 0
+  isFirstRound: 1
+  currentRound: 1
+  score: 0
+  vivos: 0
+  muertos: 0
 --- !u!4 &408613179
 Transform:
   m_ObjectHideFlags: 0
@@ -562,7 +571,19 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 584990723}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 966958353}
+        m_TargetAssemblyTypeName: UIManager, Assembly-CSharp
+        m_MethodName: Exercise
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!114 &584990723
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1348,6 +1369,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   bodyFat: 1
+  minBodyFat: 2
+  maxBodyFat: 10
+  max: 10
   life: 1
   shop: {fileID: 2080451658}
   speed: 4
@@ -1355,6 +1379,12 @@ MonoBehaviour:
   currentState: 0
   food: {fileID: 0}
   weights: {fileID: 0}
+  OnSpawn:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDeath:
+    m_PersistentCalls:
+      m_Calls: []
 --- !u!212 &1225658808
 SpriteRenderer:
   m_ObjectHideFlags: 0

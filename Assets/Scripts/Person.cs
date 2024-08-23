@@ -1,6 +1,6 @@
 using System.Collections;
-using System;
 using UnityEngine;
+using System;
 
 public class Person : MonoBehaviour
 {
@@ -10,10 +10,13 @@ public class Person : MonoBehaviour
         Patrolling,
         Eating,
         Exercising,
-        Idle // Añadido para manejar estados intermedios
+        Idle
     }
 
     [SerializeField] private float bodyFat; // 0 - 10
+    [SerializeField] private float minBodyFat = 2;
+    [SerializeField] private float maxBodyFat = 8;
+    [SerializeField] private float max = 10;
     [SerializeField] private float life = 9;
     [SerializeField] private Transform shop;
     [SerializeField] private float speed;
@@ -25,27 +28,23 @@ public class Person : MonoBehaviour
     public static Action OnFood;
     public static Action OnExercise;
 
-    private bool isEatingOrExercising = false; // Nuevo flag para evitar múltiples llamadas
+    private bool isEatingOrExercising = false;
+    private Transform target;
 
     public Transform[] PatrolPoints
     {
-        set
-        {
-            patrolPoints = value;
-        }
+        set { patrolPoints = value; }
     }
     public Transform Food
     {
         get { return food; }
         set { food = value; }
     }
-
     public Transform Weights
     {
         get { return weights; }
         set { weights = value; }
     }
-
     public Transform Shop
     {
         get { return shop; }
@@ -53,130 +52,138 @@ public class Person : MonoBehaviour
     }
     public float BodyFat
     {
-        get
-        {
-            return bodyFat;
-        }
-        set
-        {
-            bodyFat = value;
-        }
+        get { return bodyFat; }
+        set { bodyFat = Mathf.Clamp(value, 0, max); }
     }
-
     public float Life
     {
-        get
-        {
-            return life;
-        }
-        set
-        {
-            life = value;
-        }
+        get { return life; }
+        set { life = value; }
     }
+
+    public event Action OnSpawn;
+    public event Action OnDeath;
 
     private void Start()
     {
         currentState = State.MovingToShop;
-        StartCoroutine(HealthManagement());
-    }
-
-    private void Awake()
-    {
         _CompRigidbody2D = GetComponent<Rigidbody2D>();
         OnFood += TriggerEating;
         OnExercise += TriggerExercising;
+        OnSpawn?.Invoke();
+        StartCoroutine(HealthManagement());
     }
 
     private void OnDestroy()
     {
         OnFood -= TriggerEating;
         OnExercise -= TriggerExercising;
+        OnDeath?.Invoke();
     }
 
-    private IEnumerator MoveToShop()
+    private void FixedUpdate()
     {
-        while (Vector2.Distance(transform.position, shop.position) > 0.1f)
-        {
-            Vector2 newPosition = Vector2.MoveTowards(transform.position, shop.position, speed * Time.deltaTime);
-            _CompRigidbody2D.MovePosition(newPosition);
-            yield return null;
-        }
-        currentState = State.Patrolling;
-    }
+        if (isEatingOrExercising) return;
 
-    void Update()
-    {
         switch (currentState)
         {
             case State.MovingToShop:
-                if (!isEatingOrExercising) StartCoroutine(MoveToShop());
+                SetTarget(shop);
+                MoveTowardsTarget();
+                if (Vector2.Distance(transform.position, shop.position) <= 0.1f)
+                {
+                    currentState = State.Patrolling;
+                }
                 break;
+
             case State.Patrolling:
-                if (!isEatingOrExercising) StartCoroutine(Patrol());
+                if (target == null)
+                {
+                    target = patrolPoints[UnityEngine.Random.Range(0, patrolPoints.Length)];
+                }
+                SetTarget(target);
+                MoveTowardsTarget();
+                if (Vector2.Distance(transform.position, target.position) <= 0.1f)
+                {
+                    target = null;
+                }
                 break;
+
             case State.Eating:
-                if (!isEatingOrExercising) StartCoroutine(Eat());
+                SetTarget(food);
+                MoveTowardsTarget();
+                if (Vector2.Distance(transform.position, food.position) <= 0.1f)
+                {
+                    StartCoroutine(HandleEating());
+                }
                 break;
+
             case State.Exercising:
-                if (!isEatingOrExercising) StartCoroutine(Exercise());
+                SetTarget(weights);
+                MoveTowardsTarget();
+                if (Vector2.Distance(transform.position, weights.position) <= 0.1f)
+                {
+                    StartCoroutine(HandleExercising());
+                }
                 break;
         }
     }
 
-    private IEnumerator Eat()
+    private void SetTarget(Transform newTarget)
+    {
+        target = newTarget;
+    }
+
+    private void MoveTowardsTarget()
+    {
+        if (target == null) return;
+
+        Vector2 newPosition = Vector2.MoveTowards(transform.position, target.position, speed * Time.fixedDeltaTime);
+        _CompRigidbody2D.MovePosition(newPosition);
+    }
+
+    private IEnumerator HandleEating()
     {
         isEatingOrExercising = true;
-
-        while (Vector2.Distance(transform.position, food.position) > 0.1f)
-        {
-            Vector2 newPosition = Vector2.MoveTowards(transform.position, food.position, speed * Time.deltaTime);
-            _CompRigidbody2D.MovePosition(newPosition);
-            yield return null;
-        }
-
-        yield return new WaitForSeconds(1); // Pausa antes de cambiar el bodyFat
-        bodyFat += 4;  // Incrementar bodyFat
-
-        yield return new WaitForSeconds(UnityEngine.Random.Range(2, 5));
-        currentState = State.Patrolling;  // Volver a patrullar
+        yield return null;
+        BodyFat += 4;
+        currentState = State.Patrolling;
         isEatingOrExercising = false;
     }
 
-    private IEnumerator Exercise()
+    private IEnumerator HandleExercising()
     {
         isEatingOrExercising = true;
-
-        while (Vector2.Distance(transform.position, weights.position) > 0.1f)
-        {
-            Vector2 newPosition = Vector2.MoveTowards(transform.position, weights.position, speed * Time.deltaTime);
-            _CompRigidbody2D.MovePosition(newPosition);
-            yield return null;
-        }
-
-        yield return new WaitForSeconds(1); // Pausa antes de cambiar el bodyFat
-        bodyFat -= 2;  // Disminuir bodyFat
-
-        yield return new WaitForSeconds(1);
-        currentState = State.Patrolling;  // Volver a patrullar
+        yield return null;
+        BodyFat -= 2;
+        currentState = State.Patrolling;
         isEatingOrExercising = false;
     }
 
-    private IEnumerator Patrol()
+    private IEnumerator HealthManagement()
     {
-        Transform randomPatrolPoint = patrolPoints[UnityEngine.Random.Range(0, patrolPoints.Length)];
-        while (Vector2.Distance(transform.position, randomPatrolPoint.position) > 0.1f)
+        while (life > 0)
         {
-            Vector2 newPosition = Vector2.MoveTowards(transform.position, randomPatrolPoint.position, speed * Time.deltaTime);
-            _CompRigidbody2D.MovePosition(newPosition);
-            yield return null;
+            BodyFat -= 1;
+
+            if (bodyFat <= minBodyFat || bodyFat >= maxBodyFat)
+            {
+                life--;
+            }
+
+            if (life <= 0)
+            {
+                OnDeath?.Invoke();
+                Destroy(gameObject);
+            }
+
+            yield return new WaitForSeconds(1f);
         }
-        yield return new WaitForSeconds(1);
     }
 
     private void TriggerEating()
     {
-        if (!isEatingOrExercising)
+        if (!isEatingOrExercising && currentState != State.Eating)
         {
             currentState = State.Eating;
         }
@@ -184,32 +191,9 @@ public class Person : MonoBehaviour
 
     private void TriggerExercising()
     {
-        if (!isEatingOrExercising)
+        if (!isEatingOrExercising && currentState != State.Exercising)
         {
             currentState = State.Exercising;
         }
     }
-
-    private IEnumerator HealthManagement()
-    {
-        while (true)
-        {
-            if (bodyFat > 0)
-            {
-                bodyFat--;
-            }
-            else if (life > 0)
-            {
-                life--;
-                if (life <= 0)
-                {
-                    Destroy(gameObject);
-                    yield break;
-                }
-            }
-
-            yield return new WaitForSeconds(1f);
-        }
-    }
 }
-

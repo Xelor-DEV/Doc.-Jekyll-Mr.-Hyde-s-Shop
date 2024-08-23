@@ -101,7 +101,7 @@ MonoBehaviour:
   bodyFat: 5
   life: 10
   shop: {fileID: 0}
-  speed: 25
+  speed: 10
   patrolPoints:
   - {fileID: 0}
   - {fileID: 0}

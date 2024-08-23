@@ -1,43 +1,61 @@
-using System;
 using UnityEngine;
-public class Timer
+using TMPro;
+
+public class GameTimer : MonoBehaviour
 {
-    public event Action<float> OnTimerUpdate;
-    public event Action OnTimerComplete;
-    private float duration;
-    private float elapsedTime;
-    private bool isRunning;
+    [SerializeField] private float gameDuration = 120f; // Duración total del juego en segundos
+    [SerializeField] private PersonSpawner personSpawner; // Referencia al spawner de personas
+    [SerializeField] private TMP_Text timerText; // Referencia al componente TextMeshProUGUI
 
-    public Timer(float duration)
-    {
-        this.duration = duration;
-        elapsedTime = 0f;
-        isRunning = false;
-    }
+    private float timeRemaining;
+    private bool isTimerRunning = false;
 
-    public void Start()
+    private void Start()
     {
-        isRunning = true;
-        elapsedTime = 0f;
-    }
-
-    public void Update()
-    {
-        if (isRunning == true)
+        if (personSpawner == null)
         {
-            elapsedTime = elapsedTime + Time.deltaTime;
-            float progress = Mathf.Clamp01(elapsedTime / duration);
-            OnTimerUpdate?.Invoke(progress);
+            Debug.LogError("PersonSpawner no está asignado en el GameTimer.");
+            return;
+        }
 
-            if (elapsedTime >= duration)
+        if (timerText == null)
+        {
+            Debug.LogError("TextMeshProUGUI no está asignado en el GameTimer.");
+            return;
+        }
+
+        timeRemaining = gameDuration;
+        isTimerRunning = true;
+    }
+
+    private void Update()
+    {
+        if (isTimerRunning)
+        {
+            timeRemaining -= Time.deltaTime;
+
+            if (timeRemaining <= 0)
             {
-                isRunning = false;
-                OnTimerComplete?.Invoke();
+                timeRemaining = 0;
+                isTimerRunning = false;
+                personSpawner.OnTimerEnd(); // Notificar al spawner que el temporizador terminó
             }
+
+            // Actualiza el texto del temporizador
+            UpdateTimerText();
         }
     }
-    public void SetDuration(float newDuration)
+
+    private void UpdateTimerText()
     {
-        duration = newDuration;
+        int minutes = Mathf.FloorToInt(timeRemaining / 60);
+        int seconds = Mathf.FloorToInt(timeRemaining % 60);
+
+        timerText.text = $"{minutes:D2}:{seconds:D2}";
+    }
+
+    public float GetTimeRemaining()
+    {
+        return timeRemaining;
     }
 }

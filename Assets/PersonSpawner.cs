@@ -1,5 +1,4 @@
 using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 public class PersonSpawner : MonoBehaviour
@@ -23,47 +22,74 @@ public class PersonSpawner : MonoBehaviour
 
     [SerializeField] private int vivos;
     [SerializeField] private int muertos;
+    [SerializeField] private GameTimer gameTimer;
+    [SerializeField] private PlayerStateTimer playerStateTimer; // Referencia al PlayerStateTimer
+
+    private bool gameEnded = false;
 
     private void Start()
     {
         currentPersonCount = initialPersonCount;
+
+        if (gameTimer == null)
+        {
+            Debug.LogError("GameTimer no está asignado en el PersonSpawner.");
+            return;
+        }
+
+        if (playerStateTimer == null)
+        {
+            Debug.LogError("PlayerStateTimer no está asignado en el PersonSpawner.");
+            return;
+        }
+        playerStateTimer.OnStateChange += OnPlayerStateChange;
+        StartCoroutine(SpawnRoutine());
+    }
+    private void OnPlayerStateChange()
+    {
+        // Actualiza el puntaje antes de cambiar el estado
+        UpdateScore();
+
+        // Cambia el modo (bueno/malo)
+        currentMode *= -1;
+
+        // Actualiza la cantidad de personas para la próxima generación
+        if (currentMode == -1)
+        {
+            currentPersonCount += incrementValue;
+        }
+
+        // Incrementa la ronda y desactiva la bandera
+        currentRound++;
+        isFirstRound = false;
+
+        // Empieza una nueva ronda
         StartCoroutine(SpawnRoutine());
     }
 
+
     private IEnumerator SpawnRoutine()
     {
-        while (true)
+        while (!gameEnded)
         {
             ResetRoundCounters();
-            SpawnPersons(currentPersonCount);
+            yield return StartCoroutine(SpawnPersons(currentPersonCount));
 
-            yield return new WaitForSeconds(10);
+            // Actualiza el puntaje al final de la ronda
+            
 
-            UpdateScore();
-
-            // Cambia el modo (bueno/malo)
-            currentMode *= -1;
-
-            // Actualiza la cantidad de personas para la próxima generación
-            if (currentMode == -1)
-            {
-                currentPersonCount += incrementValue;
-            }
-
-            // Incrementa la ronda y desactiva la bandera
-            currentRound++;
-            isFirstRound = false;
+            // Espera a que el estado cambie
+            yield return new WaitUntil(() => playerStateTimer.isTimerRunning == false);
         }
     }
 
-    private void SpawnPersons(int count)
+    private IEnumerator SpawnPersons(int count)
     {
         for (int i = 0; i < count; ++i)
         {
             GameObject personObject = Instantiate(personPrefab, spawn.position, Quaternion.identity);
             Person person = personObject.GetComponent<Person>();
-            person.OnDeath += Person_OnDeath;
-            person.OnSpawn += Person_OnSpawn;
+            person.Initialize(this); // Pasar la referencia del spawner
             person.PatrolPoints = patrolPoints;
             person.Shop = shop;
             person.Weights = weights;
@@ -79,22 +105,17 @@ public class PersonSpawner : MonoBehaviour
                 person.BodyFat = Random.Range(minBodyFat, maxBodyFat + 1);
             }
 
-            // Suscribirse a los eventos de instancia
-
-
             vivos++; // Aumenta vivos al spawn
+
+            yield return new WaitForSeconds(0.1f); // Delay entre la generación de personas
         }
     }
 
-    private void Person_OnSpawn()
-    {
-        // Este evento se maneja directamente en SpawnPersons ahora
-    }
-
-    private void Person_OnDeath()
+    public void NotifyDeath()
     {
         vivos--;
         muertos++;
+        CheckGameOver();
     }
 
     private void ResetRoundCounters()
@@ -119,13 +140,24 @@ public class PersonSpawner : MonoBehaviour
         Debug.Log($"Ronda {currentRound}: Puntaje = {score}, Vivos = {vivos}, Muertos = {muertos}");
     }
 
-    private void OnDestroy()
+    public void OnTimerEnd()
     {
-        // Limpiar la lista de personas al destruir el spawner
-        foreach (Person person in FindObjectsOfType<Person>())
+        if (vivos > 0)
         {
-            person.OnDeath -= Person_OnDeath;
-            person.OnSpawn -= Person_OnSpawn;
+            Debug.Log("¡Ganaste!");
+        }
+        else
+        {
+            Debug.Log("Game Over");
+        }
+        gameEnded = true;
+    }
+
+    private void CheckGameOver()
+    {
+        if (vivos <= 0)
+        {
+            OnTimerEnd(); // Forzar el fin del juego si todas las personas mueren
         }
     }
 }

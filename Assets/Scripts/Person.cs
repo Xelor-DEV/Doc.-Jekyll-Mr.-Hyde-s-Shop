@@ -30,6 +30,7 @@ public class Person : MonoBehaviour
 
     private bool isEatingOrExercising = false;
     private Transform target;
+    private PersonSpawner spawner;
 
     public Transform[] PatrolPoints
     {
@@ -61,8 +62,10 @@ public class Person : MonoBehaviour
         set { life = value; }
     }
 
-    public event Action OnSpawn;
-    public event Action OnDeath;
+    public void Initialize(PersonSpawner spawner)
+    {
+        this.spawner = spawner;
+    }
 
     private void Start()
     {
@@ -70,7 +73,6 @@ public class Person : MonoBehaviour
         _CompRigidbody2D = GetComponent<Rigidbody2D>();
         OnFood += TriggerEating;
         OnExercise += TriggerExercising;
-        OnSpawn?.Invoke();
         StartCoroutine(HealthManagement());
     }
 
@@ -78,7 +80,10 @@ public class Person : MonoBehaviour
     {
         OnFood -= TriggerEating;
         OnExercise -= TriggerExercising;
-        OnDeath?.Invoke();
+        if (spawner != null)
+        {
+            spawner.NotifyDeath();
+        }
     }
 
     private void FixedUpdate()
@@ -173,7 +178,6 @@ public class Person : MonoBehaviour
 
             if (life <= 0)
             {
-                OnDeath?.Invoke();
                 Destroy(gameObject);
             }
 

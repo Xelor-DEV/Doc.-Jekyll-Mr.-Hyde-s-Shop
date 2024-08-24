@@ -3,7 +3,7 @@ using System;
 using UnityEngine.UI;
 using TMPro;
 using DG.Tweening;
-
+using UnityEngine.SceneManagement;
 public class UIManager : MonoBehaviour
 {
     [Header("References")]
@@ -12,6 +12,8 @@ public class UIManager : MonoBehaviour
     [SerializeField] private Slider masterSlider;
     [SerializeField] private Slider musicSlider;
     [SerializeField] private Slider sfxSlider;
+    [SerializeField] public TMP_Text personsLive;
+    [SerializeField] public GameObject pause;
     public Slider MasterSlider
     {
         get
@@ -37,14 +39,30 @@ public class UIManager : MonoBehaviour
     {
         Time.timeScale = 1;
     }
-    public void Food()
+    public void Pause()
     {
-        
-        Person.OnFood?.Invoke();
+        Time.timeScale = 0;
     }
-    public void Exercise()
+    public void Resume()
     {
-
-        Person.OnExercise?.Invoke();
+        pause.SetActive(false);
+        Image pause1 = pause.GetComponent<Image>();
+        pause1.raycastTarget = false;
+        Time.timeScale = 1;
+    }
+    public void ResetGame()
+    {
+        SceneManager.LoadScene("Game");
+    }
+    public void Pausar()
+    {
+        pause.SetActive(true);
+        Image pause1 = pause.GetComponent<Image>();
+        pause1.raycastTarget = true;
+        Pause();
+    }
+    public void GoToMenu()
+    {
+        SceneManager.LoadScene("Menu");
     }
 }

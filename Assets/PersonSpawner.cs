@@ -1,18 +1,21 @@
 using System.Collections;
 using UnityEngine;
+using TMPro;
+using UnityEngine.UI;
+using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 
 public class PersonSpawner : MonoBehaviour
 {
     [SerializeField] private Transform[] patrolPoints;
     [SerializeField] private GameObject personPrefab;
     [SerializeField] private Transform spawn;
-    [SerializeField] private Transform food;
-    [SerializeField] private Transform weights;
+    [SerializeField] private Transform[] food;
+    [SerializeField] private Transform[] weights;
     [SerializeField] private Transform shop;
     [SerializeField] private int initialPersonCount = 5;
-    [SerializeField] private int incrementValue = 1;
-    [SerializeField] private int minBodyFat = 4;
-    [SerializeField] private int maxBodyFat = 7;
+    [SerializeField] private int incrementedValue = 2; // Nuevo valor incrementado inicial
+    [SerializeField] private int incrementer = 1; // Nuevo incrementador
 
     [SerializeField] private int currentMode = 1; // 1 = Bueno, -1 = Malo
     [SerializeField] private int currentPersonCount;
@@ -24,6 +27,16 @@ public class PersonSpawner : MonoBehaviour
     [SerializeField] private int muertos;
     [SerializeField] private GameTimer gameTimer;
     [SerializeField] private PlayerStateTimer playerStateTimer; // Referencia al PlayerStateTimer
+    [SerializeField] private TMP_Text scoreText;
+    [SerializeField] private GameObject win;
+    [SerializeField] private UIManager uiManager;
+    [SerializeField] private GameObject lose;
+
+    [SerializeField] private Color goodModeColor; // Color para el modo bueno
+    [SerializeField] private Color badModeColor; // Color para el modo malo
+    [SerializeField] private Volume globalVolume; // Referencia al Global Volume
+
+    private Vignette vignette;
 
     private bool gameEnded = false;
 
@@ -43,21 +56,46 @@ public class PersonSpawner : MonoBehaviour
             return;
         }
         playerStateTimer.OnStateChange += OnPlayerStateChange;
+        scoreText.text = score.ToString();
+        UpdateBackgroundMusic();
         StartCoroutine(SpawnRoutine());
+        // Obtener el componente Vignette del Global Volume
+        if (globalVolume.profile.TryGet<Vignette>(out vignette))
+        {
+            UpdateVignetteColor();
+        }
+        else
+        {
+            Debug.LogError("No se pudo encontrar el componente Vignette en el Global Volume.");
+        }
+    }
+    private void UpdateVignetteColor()
+    {
+        if (vignette != null)
+        {
+            vignette.color.value = currentMode == 1 ? goodModeColor : badModeColor;
+        }
     }
     private void OnPlayerStateChange()
     {
         // Actualiza el puntaje antes de cambiar el estado
         UpdateScore();
+        scoreText.text = score.ToString();
 
         // Cambia el modo (bueno/malo)
+        AudioManager.Instance.PlaySfx(2);
         currentMode *= -1;
 
+        // Actualiza la música de fondo según el nuevo modo
+        UpdateBackgroundMusic();
+        UpdateVignetteColor();
         // Actualiza la cantidad de personas para la próxima generación
-        if (currentMode == -1)
+        if (!isFirstRound)
         {
-            currentPersonCount += incrementValue;
+            incrementedValue += incrementer;
         }
+
+        currentPersonCount = incrementedValue;
 
         // Incrementa la ronda y desactiva la bandera
         currentRound++;
@@ -67,6 +105,18 @@ public class PersonSpawner : MonoBehaviour
         StartCoroutine(SpawnRoutine());
     }
 
+    private void UpdateBackgroundMusic()
+    {
+        if (AudioManager.Instance != null)
+        {
+            int musicIndex = currentMode == 1 ? 0 : 1;
+            AudioManager.Instance.PlayMusic(musicIndex);
+        }
+        else
+        {
+            Debug.LogError("AudioManager no está asignado.");
+        }
+    }
 
     private IEnumerator SpawnRoutine()
     {
@@ -76,7 +126,7 @@ public class PersonSpawner : MonoBehaviour
             yield return StartCoroutine(SpawnPersons(currentPersonCount));
 
             // Actualiza el puntaje al final de la ronda
-            
+            // ...
 
             // Espera a que el estado cambie
             yield return new WaitUntil(() => playerStateTimer.isTimerRunning == false);
@@ -92,22 +142,22 @@ public class PersonSpawner : MonoBehaviour
             person.Initialize(this); // Pasar la referencia del spawner
             person.PatrolPoints = patrolPoints;
             person.Shop = shop;
-            person.Weights = weights;
-            person.Food = food;
+            person.Weights = weights[Random.Range(0,weights.Length - 1)];
+            person.Food = food[Random.Range(0, food.Length - 1)];
 
             // En la primera ronda, genera siempre con bodyFat de 5 en modo bueno
             if (isFirstRound && currentMode == 1)
             {
-                person.BodyFat = 5;
+                person.BodyFat = 6;
             }
             else
             {
-                person.BodyFat = Random.Range(minBodyFat, maxBodyFat + 1);
+                person.BodyFat = 6;
             }
 
             vivos++; // Aumenta vivos al spawn
 
-            yield return new WaitForSeconds(0.1f); // Delay entre la generación de personas
+            yield return new WaitForSeconds(0.2f); // Delay entre la generación de personas
         }
     }
 
@@ -137,6 +187,13 @@ public class PersonSpawner : MonoBehaviour
         }
 
         score += points;
+
+        // Asegúrate de que el puntaje no sea menor a 0
+        if (score < 0)
+        {
+            score = 0;
+        }
+
         Debug.Log($"Ronda {currentRound}: Puntaje = {score}, Vivos = {vivos}, Muertos = {muertos}");
     }
 
@@ -144,12 +201,20 @@ public class PersonSpawner : MonoBehaviour
     {
         if (vivos > 0)
         {
-            Debug.Log("¡Ganaste!");
+            win.SetActive(true);
+            Image pause1 = win.GetComponent<Image>();
+            pause1.raycastTarget = true;
+            uiManager.personsLive.text = vivos + " People Survived";
+            uiManager.Pause();
         }
         else
         {
-            Debug.Log("Game Over");
+            lose.SetActive(true);
+            Image pause1 = lose.GetComponent<Image>();
+            pause1.raycastTarget = true;
+            uiManager.Pause();
         }
+
         gameEnded = true;
     }
 

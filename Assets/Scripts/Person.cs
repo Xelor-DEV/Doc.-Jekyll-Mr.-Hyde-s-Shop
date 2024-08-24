@@ -1,5 +1,6 @@
 using System.Collections;
 using UnityEngine;
+using UnityEngine.UI;
 using System;
 
 public class Person : MonoBehaviour
@@ -19,14 +20,24 @@ public class Person : MonoBehaviour
     [SerializeField] private float max = 10;
     [SerializeField] private float life = 9;
     [SerializeField] private Transform shop;
-    [SerializeField] private float speed;
+    [SerializeField] private float normalSpeed;
+    [SerializeField] private float runningSpeed;
+    [SerializeField] private float bodyFatIncrease;
+    [SerializeField] private float bodyFatDecrease;
+    private float currentSpeed;
     private Rigidbody2D _CompRigidbody2D;
     [SerializeField] private Transform[] patrolPoints;
     [SerializeField] private State currentState;
     [SerializeField] private Transform food;
     [SerializeField] private Transform weights;
-    public static Action OnFood;
-    public static Action OnExercise;
+    [SerializeField] private Animator animator;  // Referencia al Animator
+    public Action OnFood;
+    public Action OnExercise;
+
+    [SerializeField] private Image lifeBar;  // Barra de vida
+    [SerializeField] private Image bodyFatBar;  // Barra de grasa corporal
+    [SerializeField] private Color safeColor = Color.yellow;  // Color seguro (amarillo)
+    [SerializeField] private Color dangerColor = Color.red;  // Color peligroso (rojo)
 
     private bool isEatingOrExercising = false;
     private Transform target;
@@ -54,12 +65,20 @@ public class Person : MonoBehaviour
     public float BodyFat
     {
         get { return bodyFat; }
-        set { bodyFat = Mathf.Clamp(value, 0, max); }
+        set
+        {
+            bodyFat = Mathf.Clamp(value, 0, max);
+            UpdateBodyFatBar();  // Actualiza la barra de grasa corporal
+        }
     }
     public float Life
     {
         get { return life; }
-        set { life = value; }
+        set
+        {
+            life = Mathf.Clamp(value, 0, max);
+            UpdateLifeBar();  // Actualiza la barra de vida
+        }
     }
 
     public void Initialize(PersonSpawner spawner)
@@ -71,9 +90,13 @@ public class Person : MonoBehaviour
     {
         currentState = State.MovingToShop;
         _CompRigidbody2D = GetComponent<Rigidbody2D>();
+        animator = GetComponent<Animator>();  // Obtén el componente Animator
         OnFood += TriggerEating;
         OnExercise += TriggerExercising;
         StartCoroutine(HealthManagement());
+        UpdateLifeBar();  // Inicializa la barra de vida
+        UpdateBodyFatBar();  // Inicializa la barra de grasa corporal
+        currentSpeed = normalSpeed;  // Establece la velocidad inicial como la velocidad normal
     }
 
     private void OnDestroy()
@@ -102,6 +125,7 @@ public class Person : MonoBehaviour
                 break;
 
             case State.Patrolling:
+                currentSpeed = normalSpeed;  // Establece la velocidad normal
                 if (target == null)
                 {
                     target = patrolPoints[UnityEngine.Random.Range(0, patrolPoints.Length)];
@@ -115,6 +139,7 @@ public class Person : MonoBehaviour
                 break;
 
             case State.Eating:
+                currentSpeed = runningSpeed;  // Establece la velocidad de correr
                 SetTarget(food);
                 MoveTowardsTarget();
                 if (Vector2.Distance(transform.position, food.position) <= 0.1f)
@@ -124,6 +149,7 @@ public class Person : MonoBehaviour
                 break;
 
             case State.Exercising:
+                currentSpeed = runningSpeed;  // Establece la velocidad de correr
                 SetTarget(weights);
                 MoveTowardsTarget();
                 if (Vector2.Distance(transform.position, weights.position) <= 0.1f)
@@ -143,15 +169,19 @@ public class Person : MonoBehaviour
     {
         if (target == null) return;
 
-        Vector2 newPosition = Vector2.MoveTowards(transform.position, target.position, speed * Time.fixedDeltaTime);
+        Vector2 newPosition = Vector2.MoveTowards(transform.position, target.position, currentSpeed * Time.fixedDeltaTime);
         _CompRigidbody2D.MovePosition(newPosition);
     }
 
     private IEnumerator HandleEating()
     {
         isEatingOrExercising = true;
-        yield return null;
-        BodyFat += 4;
+        animator.SetBool("IsEating", true);  // Activa la animación de comer
+        AudioManager.Instance.PlaySfx(0);
+        BodyFat += bodyFatIncrease/2;
+        yield return new WaitForSeconds(0.5f);  // Espera a que termine la animación
+        BodyFat += bodyFatIncrease / 2;
+        animator.SetBool("IsEating", false);  // Desactiva la animación de comer
         currentState = State.Patrolling;
         isEatingOrExercising = false;
     }
@@ -159,8 +189,12 @@ public class Person : MonoBehaviour
     private IEnumerator HandleExercising()
     {
         isEatingOrExercising = true;
-        yield return null;
-        BodyFat -= 2;
+        animator.SetBool("IsExercising", true);  // Activa la animación de ejercitarse
+        AudioManager.Instance.PlaySfx(1);
+        BodyFat -= bodyFatDecrease / 2;
+        yield return new WaitForSeconds(0.5f);  // Espera a que termine la animación
+        BodyFat -= bodyFatDecrease / 2;
+        animator.SetBool("IsExercising", false);  // Desactiva la animación de ejercitarse
         currentState = State.Patrolling;
         isEatingOrExercising = false;
     }
@@ -173,7 +207,7 @@ public class Person : MonoBehaviour
 
             if (bodyFat <= minBodyFat || bodyFat >= maxBodyFat)
             {
-                life--;
+                Life--;
             }
 
             if (life <= 0)
@@ -185,7 +219,26 @@ public class Person : MonoBehaviour
         }
     }
 
-    private void TriggerEating()
+    private void UpdateLifeBar()
+    {
+        lifeBar.fillAmount = life / max;
+    }
+
+    private void UpdateBodyFatBar()
+    {
+        bodyFatBar.fillAmount = bodyFat / max;
+
+        if (bodyFat <= minBodyFat || bodyFat >= maxBodyFat)
+        {
+            bodyFatBar.color = dangerColor;
+        }
+        else
+        {
+            bodyFatBar.color = safeColor;
+        }
+    }
+
+    public void TriggerEating()
     {
         if (!isEatingOrExercising && currentState != State.Eating)
         {
@@ -193,7 +246,7 @@ public class Person : MonoBehaviour
         }
     }
 
-    private void TriggerExercising()
+    public void TriggerExercising()
     {
         if (!isEatingOrExercising && currentState != State.Exercising)
         {

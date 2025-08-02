@@ -62,7 +62,7 @@
                     "path": "<Mouse>/position",
                     "interactions": "",
                     "processors": "",
-                    "groups": "",
+                    "groups": "Mouse",
                     "action": "Position",
                     "isComposite": false,
                     "isPartOfComposite": false
@@ -77,7 +77,7 @@
             "devices": [
                 {
                     "devicePath": "<Mouse>",
-                    "isOptional": false,
+                    "isOptional": true,
                     "isOR": false
                 }
             ]
